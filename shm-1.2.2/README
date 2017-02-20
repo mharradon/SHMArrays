@@ -1,0 +1,22 @@
+shm and shm_wrapper - Python access to System V shared memory and semaphores
+----------------------------------------------------------------------------
+
+shm is a Python module (written by Vladimir Marangozov) that gives access to
+System V shared memory and semaphores on *nix systems. shm_wrapper (written
+by me) is an optional companion module that gives more Pythonic access.
+Windows users, you're out of luck here; these modules only work on platforms
+that support System V shared objects. Most *nixes do (including OS X) but
+Windows does not.
+
+The latest version, contact info, etc. are available here:
+http://NikitaTheSpider.com/python/shm/
+
+Installation is as simple as `sudo python setup.py`. Usage, a version 
+history, warnings, suggestions, etc. are covered in ReadMe.html.
+
+shm and shm_wrapper are free software (free as in freedom and free as
+in beer). Licensing information is available in the LICENSE file.
+
+Enjoy,
+Philip Semanchuk
+February 2007

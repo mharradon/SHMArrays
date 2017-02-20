@@ -1,0 +1,519 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="en">
+<head>
+	<title>Nikita The Spider * Python IPC - Modules shm and shm_wrapper</title>
+
+</head>
+<body>
+
+<h2>IPC with Python - System V Shared Memory and Semaphores</h2>
+
+<p>This describes the module <tt>shm</tt> (written by Vladimir Marangozov) that gives access
+to System V shared memory and semaphores on *nix systems as well the module
+<tt>shm_wrapper</tt>
+(written by <a name="contact" href="http://NikitaTheSpider.com/contact.html">me</a>) which is a
+companion module that offers more Pythonic access. Windows users, you're out of luck here; these
+modules only work on platforms that support System V shared objects. Most *nixes do
+(including OS X) but Windows does not.
+</p>
+
+<p><strong>You can download <a href="shm-1.2.2.tar.gz">shm version 1.2.2</a> which contains
+<a href="#shm_wrapper">the module <tt>shm_wrapper</tt></a>,
+<a href="#shm">the module <tt>shm</tt></a>, installation instructions and
+<a href="#samples">sample code</a>. You might also want to read
+about some <a href="#KnownBugs">known bugs</a>.</strong>
+</p>
+
+<h2>The Modules</h2>
+
+<p>There's two modules available here. <strong><tt>shm</tt> is essential</strong>.
+It is a single
+C language file that compiles into a Python module. The module's functions and features
+map fairly closely to the system calls like <tt>shmctl</tt>, but with nicer names.
+</p>
+
+<p>The module <strong><tt>shm_wrapper</tt> offers easier-to-use, higher-lever access to
+<tt>shm</tt>'s features.</strong> For example, <tt>shm</tt> memory objects support
+reading the object's permissions through the <tt>perm</tt> attribute but you must set them
+by calling <tt>setperm()</tt>. By contrast, <tt>shm_wrapper</tt> exposes a simple
+gettable/settable attribute called <tt>permissions</tt>.
+</p>
+
+<p><tt>shm_wrapper</tt> also allows you to ignore the messy details surrounding keys and
+ids for the objects. Since the fact that <a href="#ftok"><tt>ftok()</tt> is broken on most
+(all?) modern systems</a> makes keys not very useful, there's no reason for you to spend
+time messing with them if you can avoid doing so.
+</p>
+
+<h3>Which Should You Use?</h3>
+
+<p>If you're an old (or young) Sys V hacker, you might prefer <tt>shm</tt>'s "closer to 
+the metal" feel. Otherwise, use <tt>shm_wrapper</tt>.
+</p>
+
+<h2><a name="shm_wrapper"><tt>shm_wrapper</tt></a></h2>
+
+<p>This module provides classes that act as handles to shared memory and semaphores as well as
+functions to create and destroy each. Memory segments and semaphores are distinguished
+from one another by a guaranteed-unique key that this module generates automatically when
+the object is created.
+</p>
+
+<h3><tt>shm_wrapper</tt> Functions</h3>
+
+<dl>
+    <dt>create_memory(size, permissions = 0666, InitCharacter = '&nbsp;')</dt>
+    <dd>Creates a shared memory segment and returns a SharedMemoryHandle instance (described
+        below). Each byte of the memory will be initialized to InitCharacter. If you pass
+        a multibyte character for that parameter, the results are undefined. You can
+        destroy the memory either by calling <tt>remove_memory()</tt> or by calling the
+        <tt>.remove()</tt> method on a handle to said memory.
+    </dd>
+    <dt>remove_memory(key)</dt>
+    <dd>Removes (releases) the shared memory identified by <tt>key</tt>. Raises
+        <tt>KeyError</tt> if no shared memory has that key.
+    </dd>
+    <dt>create_semaphore(InitialValue = 1, permissions = 0666)</dt>
+    <dd>Creates a semaphore and returns a SemaphoreHandle instance (described below). You can
+        destroy the semaphore either by calling <tt>remove_semaphore()</tt> or by calling the
+        <tt>.remove()</tt> method on a handle to said semaphore.
+    </dd>
+    <dt>remove_semaphore(key)</dt>
+    <dd>Destroys the semaphore identified by <tt>key</tt>. Raises
+        <tt>KeyError</tt> if no semaphore has that key.
+    </dd>
+</dl>
+
+<h3><tt>shm_wrapper</tt> Class - SharedMemoryHandle</h3>
+
+<p>This is a handle to a piece of shared memory that allows you to read and write to the memory
+and manipulate its attributes. Important methods and attributes are below. Not all of the
+attributes are documented here; refer to the module itself for information on some of the
+more obscure ones.
+</p>
+
+<dl>
+    <dt>read(NumberOfBytes = 0, offset = 0)</dt>
+    <dd>Reads the specified number of bytes from position offset and returns a string.</dd>
+    <dt>write(s, offset = 0)</dt>
+    <dd>Writes the string s to position offset.</dd>
+    <dt>remove()</dt>
+    <dd>Removes (releases) the shared memory. If any process tries to access it
+        after calling <tt>.remove()</tt>, the results are system-dependent  (but will
+        probably be unpleasant).
+    </dd>
+    <dt>key (read only)</dt>
+    <dd>The integer key that identifies this segment. By passing the key to other processes,
+        the process that created the shared memory gives them the ability to find it easily.
+    </dd>
+    <dt>size (read only)</dt>
+    <dd>The size of the segment in bytes.</dd>
+    <dt>permissions</dt>
+    <dd>The permissions on this memory.</dd>
+</dl>
+
+
+<h3><tt>shm_wrapper</tt> Class - SemaphoreHandle</h3>
+
+<p>This is a handle to a semaphore that allows you to wait on the semaphore and also read
+and write to its attributes. Important methods and attributes are below. Not all of the
+attributes are documented here; refer to the module itself for information on some of the
+more obscure ones.
+</p>
+
+<dl>
+    <dt>P()</dt>
+    <dd>Blocks while the semaphore is zero and, once unblocked, decrements it. Stands for
+        <span lang="nl">prolaag</span> or <span lang="nl">probeer te verlagen</span>
+        (try to decrease).
+    </dd>
+    <dt>V()</dt>
+    <dd>Increments the semaphore. Stands for <span lang="nl">verhoog</span> (increase).</dd>
+    <dt>Z()</dt>
+    <dd>Blocks until zee zemaphore is zero.</dd>
+    <dt>remove()</dt>
+    <dd>Removes (destroys) the semaphore. If any process tries to access it
+        after calling <tt>.remove()</tt>, the results are system-dependent (but will
+        probably be unpleasant).
+    </dd>
+    <dt>key (read only)</dt>
+    <dd>The integer key that identifies this semaphore. By passing the key to other processes,
+        the process that created the semaphore gives them the ability to find it easily.
+    </dd>
+    <dt>value</dt>
+    <dd>The semaphore's value.</dd>
+    <dt>permissions</dt>
+    <dd>The permissions on this semaphore.</dd>
+    <dt>blocking</dt>
+    <dd>Turns blocking mode on or off. In non-blocking mode, <tt>P()</tt> and <tt>Z()</tt>
+        will merely raise <tt>shm.error</tt> if the semaphore is unavailable.</dd>
+    <dt>undo</dt>
+    <dd>Turns the SEM_UNDO flag on or off, but I believe support for SEM_UNDO is OS
+        dependent.</dd>
+    <dt>WaitingForZero (read only)</dt>
+    <dd>The number of processes waiting for this semaphore to hit zero (i.e. waiting in
+        a call to <tt>.Z()</tt>).</dd>
+    <dt>WaitingForNonZero (read only)</dt>
+    <dd>The number of processes waiting for this semaphore to hit non-zero (i.e. waiting in
+        a call to <tt>.P()</tt>).</dd>
+</dl>
+
+
+<h2><a name="shm"><tt>shm</tt></a></h2>
+
+<p>Vladimir Marangozov's <tt>shm</tt> module is the core of the onion, so to speak. It is a
+single C language file that compiles into a Python module. The module's functions and features
+map fairly closely to the system calls like <tt>shmctl</tt>, but with nicer names.
+The module has the following features:
+</p>
+
+<h3><tt>shm</tt> Functions</h3>
+
+<dl>
+    <dt>create_memory(Key, Size, [Perm=0666])</dt>
+    <dd>Creates a new shared memory segment and returns an shm.Memory object (described
+        below). Fails if the key is not unique.</dd>
+    <dt>create_semaphore(Key, [Value=1, Perm=0666])</dt>
+    <dd>Creates a new semaphore and returns an shm.Semaphore object (described below). Fails
+        if the key is not unique.</dd>
+    <dt>ftok(string Path, int ProjId)</dt>
+    <dd>Calls the system's <tt>ftok()</tt> which is supposed to map each filename to a
+        unique integer but is <a href="#ftok">probably broken on your operating
+        system</a>.</dd>
+    <dt>getshmid(Key)</dt>
+    <dd>Maps a memory key to an integer id. Raises KeyError if the key doesn't exist.</dd>
+    <dt>getsemid(Key)</dt>
+    <dd>Maps a semaphore key to an integer id. Raises KeyError if the key doesn't exist.</dd>
+    <dt>memory(Shmid)</dt>
+    <dd>Returns an shm.Memory handle to a shared memory segment if one exists with the
+        id <tt>Shmid</tt>, otherwise returns a memory object with the <tt>addr</tt> attribute
+        set to 0. I haven't yet figured out what purpose this serves.</dd>
+    <dt>memory_haskey(Key)</dt>
+    <dd>True if a shared memory segment with the given key exists.</dd>
+    <dt>remove_memory(Shmid)</dt>
+    <dd>Destroys (removes from the system) the shared memory segment identified by <tt>Shmid</tt>.</dd>
+    <dt>remove_semaphore(Shmid)</dt>
+    <dd>Destroys (removes from the system) the semaphore identified by <tt>Shmid</tt>.</dd>
+    <dt>semaphore(Semid)</dt>
+    <dd>Returns an shm.Semaphore handle to a semaphore if one exists with the id <tt>Semid</tt>,
+        otherwise returns a semaphore object that points to ???.
+        I haven't yet figured out what purpose this serves.</dd>
+    <dt>semaphore_haskey(Key)</dt>
+    <dd>True if a semaphore with the given key exists.</dd>
+</dl>
+
+<h3><tt>shm</tt> Errors</h3>
+
+<p>The <tt>shm</tt> module defines its own <tt>shm.error</tt>.</p>
+
+<h3><tt>shm</tt> Class - Memory</h3>
+
+<p>A Memory object is a handle to a chunk of shared memory created by
+<tt>shm.create_memory()</tt>. Memory objects have these attributes and methods:
+</p>
+
+<dl>
+    <dt>attach([addr = 0, how = 0])</dt>
+    <dd>Attaches to the memory segment. See your system's man page for <tt>shmat</tt>
+        for valid parameter values</dd>
+    <dt>detach()</dt>
+    <dd>Detaches from the memory segment</dd>
+    <dt>read(NumberOfBytesToRead, [offset = 0]), returns a string</dt>
+    <dd>Reads bytes from the memory segment.</dd>
+    <dt>write(s, [offset = 0])</dt>
+    <dd>Writes the string s to the memory segment</dd>
+    <dt>setperm(perm)</dt>
+    <dd>Sets the permissions</dd>
+    <dt>setgid(gid)</dt>
+    <dd>Sets the gid</dd>
+    <dt>setuid(uid)</dt>
+    <dd>Sets the uid</dd>
+    <dt>shmid (read only)</dt>
+    <dd>The segment's id</dd>
+    <dt>key (read only)</dt>
+    <dd>The segment key or IPC_PRIVATE (0)</dd>
+    <dt>size (read only)</dt>
+    <dd>The segment's size in bytes</dd>
+    <dt>attached (read only)</dt>
+    <dd>A Boolean that reports whether or not the memory has been attached by
+        a call to <tt>.attach()</tt>
+    </dd>
+    <dt>nattch (read only)</dt>
+    <dd>The number of processes currently attached to this segment</dd>
+    <dt>perm (read only)</dt>
+    <dd>The segment's permissions</dd>
+    <dt>addr (read only)</dt>
+    <dd>Attachment address in the process address space</dd>
+    <dt>cgid (read only)</dt>
+    <dd>The gid of the creator</dd>
+    <dt>cpid (read only)</dt>
+    <dd>The pid of the creator</dd>
+    <dt>cuid (read only)</dt>
+    <dd>The uid of the creator</dd>
+    <dt>gid (read only)</dt>
+    <dd>The gid of the owner</dd>
+    <dt>uid (read only)</dt>
+    <dd>The uid of the owner</dd>
+    <dt>lpid (read only)</dt>
+    <dd>The pid of the last process to touch(?) this object</dd>
+</dl>
+
+<h3><tt>shm</tt> Class - Semaphore</h3>
+
+<p>A Semaphore object is a handle to a semaphore created by
+<tt>shm.create_semaphore()</tt>. Semaphore objects have these attributes and methods:
+</p>
+
+<dl>
+    <dt>P()</dt>
+    <dd>Blocks while .val == 0; then decrements before returning. Stands for
+        <span lang="nl">prolaag</span> or <span lang="nl">probeer te verlagen</span>
+        (try to decrease).
+    </dd>
+    <dt>V()</dt>
+    <dd>Increments .val. Stands for <span lang="nl">verhoog</span> (increase).</dd>
+    <dt>Z()</dt>
+    <dd>Blocks until .val == 0.</dd>
+    <dt>setblocking(block)</dt>
+    <dd>Turns blocking on or off.</dd>
+    <dt>setundo(undo)</dt>
+    <dd>Turns the undo flag on or off. (See your system's man page notes about <tt>semop</tt>
+        and <tt>SEM_UNDO</tt>.)</dd>
+    <dt>setval(Value)</dt>
+    <dd>Sets the value.</dd>
+    <dt>setperm(perm)</dt>
+    <dd>Sets the permissions</dd>
+    <dt>setgid(gid)</dt>
+    <dd>Sets the gid</dd>
+    <dt>setuid(uid)</dt>
+    <dd>Sets the uid</dd>
+    <dt>semid (read only)</dt>
+    <dd>The sempahore's id</dd>
+    <dt>key (read only)</dt>
+    <dd>The sempahore key or IPC_PRIVATE (0)</dd>
+    <dt>blocking (read only)</dt>
+    <dd>A Boolean that reports whether or not blocking mode is on or off.</dd>
+    <dt>cgid (read only)</dt>
+    <dd>The gid of the creator</dd>
+    <dt>cuid (read only)</dt>
+    <dd>The uid of the creator</dd>
+    <dt>gid (read only)</dt>
+    <dd>The gid of the owner</dd>
+    <dt>uid (read only)</dt>
+    <dd>The uid of the owner</dd>
+    <dt>lpid (read only)</dt>
+    <dd>The pid of the last process to touch(?) this object</dd>
+    <dt>ncnt (read only)</dt>
+    <dd>The number of processes waiting for this semaphore's value to become &gt; 0.</dd>
+    <dt>perm (read only)</dt>
+    <dd>The semaphore's permissions</dd>
+    <dt>val (read only)</dt>
+    <dd>The value of the semaphore's counter.</dd>
+    <dt>zcnt (read only)</dt>
+    <dd>The number of processes waiting for this semaphore's value to become = 0.</dd>
+</dl>
+
+<h3>Version History</h3>
+
+<ul id="history">
+    <li><strong>Current &ndash; 1.2.2 (11 May 2008) &ndash;</strong> Changed the __del__() 
+        method in shm_wrapper's SharedMemoryHandle object to avoid referring to the shm 
+        module since that module might not be available during deletion. Thanks to René
+        Neumann for the bug report and patch.
+	</li>
+	
+    <li>1.2.1 (11 Apr 2008) &ndash; No code change. I forgot
+        to update the version string in version 1.2's setup.py, so that version installed 
+        itself claiming to be 1.1.4 even though it wasn't. That's now corrected. I also
+        added the missing "INSTALL" file. Thanks to Jeff Schwab for letting me know it 
+        was missing.
+	</li>
+	
+    <li>1.2 (27 Jan 2008) &ndash; Now thread-friendly!
+		 Patch provided by James Teh (thanks!). Also fixed some int/long/ulong sloppiness
+		 pointed out by kAbY that could cause crashes on 64-bit platforms.
+	</li>
+	
+    <li>1.1.4 (10 Jan 2008) &ndash;
+    	<ul>
+        	<li>Changed setup.py to use Python 2.2-friendly syntax.</li>
+			<li>Undid the "fix" I'd applied in 1.1.3 and replaced it with code that properly
+				detects which flavor the ipc_perm struct your system has. Thanks to Aaron 
+				Lindsey and Bill Codington.</li>
+		</ul>
+    </li>
+    <li>1.1.3 (23 November 2007) &ndash; Changed #define of key to 
+		_key instead of __key for OS X Leopard. Thanks to Bill Hart.
+    </li>
+    <li>1.1.2 (18 November 2007) &ndash; <tt>shm_wrapper</tt> now
+		installed by default since it is the recommended interface for using this code.
+		Fixed an implicit cast of size_t to unsigned int in the repr function that was 
+		exposed by compiling against Python 2.5. Also updated setup.py to be a bit nicer. 
+    </li>
+    <li>1.1.1 (5 March 2007) &ndash; Updated setup.py with compile
+        options that work for Linux users.
+    </li>
+    <li>1.1 (8 February 2007) &ndash; Rereleased <tt>shm</tt> after
+    it had languished a bit in recent years. This version contains a number of fixes
+    and changes as well as the new companion module <tt>shm_wrapper</tt>.
+    <ul>
+        <li>Created <tt>shm_wrapper</tt> to give a more consistent and Pythonic interface.</li>
+        <li>Fixed a memory leak in <tt>PyShm_memory()</tt> and <tt>PyShm_semaphore()</tt>
+            spotted by
+            <a href="http://groups.google.com/group/comp.lang.python/msg/54964f985c4a3dc4">Jon
+            Corbet</a>.
+        </li>
+        <li>Fixed a memory leak in <tt>PyShm_create_memory()</tt> and
+            <tt>PyShm_create_semaphore()</tt> related to inlining <tt>Py_BuildValue()</tt>.
+        </li>
+        <li>Fixed a typo that caused <tt>xxx_setuid()</tt> to set the group id instead.</li>
+        <li>Changed <tt>PyMem_DEL</tt> to <tt>PyObject_Del</tt> in the <tt>_dealloc</tt>
+            functions for Python 2.5. Thanks to Jason Tackaberry/Pierre Ossman.
+        </li>
+        <li>Fixed <tt>sprintf()</tt> in <tt>PyShmMemory_repr()</tt> to use the correct
+            format.</li>
+        <li>Added the ability to read the blocking mode of a semaphore.</li>
+        <li>Changed the function prototypes from K&amp;R style so that compiling with
+            <tt>-Wstrict-prototypes</tt> is now clean.</li>
+        <li>Added an #ifdef for happy compiles under FreeBSD.</li>
+        <li>Added a setup.py file.</li>
+    </ul>
+
+    <li>1.0 (sometime in the 1990s) - Original version by Vladimir Marangozov.</li>
+</ul>
+
+<h3>Interesting Tools</h3>
+
+<p>Many systems (although not some versions of OS X) come with <tt>ipcs</tt> and <tt>ipcrm</tt>.
+The former shows existing shared memory, semaphores and message queues on your system and
+the latter allows you to remove them.
+</p>
+
+<h3>SHM and Threads</h3>
+
+<p>As of version 1.2, <tt>shm</tt> should be safe to use in threaded applications. (Previous 
+versions were not).
+</p>
+
+<h3><a name="samples">Sample Code</a></h3>
+
+<p>The tarball includes code demonstrating the use of both <tt>shm_wrapper</tt> and
+<tt>shm</tt>. The demo code comes in the form of two complementary applications
+(two apps for each demo = a total of four apps). The apps are called Mrs. Premise and
+Mrs. Conclusion (as in, "Four hours to bury a cat?") and they converse with one another through
+shared memory. Run Mrs. Premise in one terminal and Mrs. Conclusion in another.
+</p>
+
+<p>
+The conversation starts with Mrs. Premise creating the shared memory and then seeding it
+with a random string. Mrs. Conclusion then calculates the md5 hash of this string and writes
+that back into the shared memory. Mrs. Premise calculates the md5 hash of <em>that</em>
+string and writes it to the shared memory, and so it goes back and forth for as many
+iterations as are specified. Using md5 hashes allows Mrs. Premise and Mrs. Conclusion to
+verify that the other process correctly read what was written because it makes the
+response predictable. This is important for detecting memory corruption (see below).
+</p>
+
+<p>You can specify whether or not you want the flow of the conversation to be controlled with
+a semaphore. (This option as well as the number of iterations are specified in
+<tt>DemoConstants.py</tt>.) If you opt not to use the semaphore, memory corruption (i.e.
+a "simultaneous" write by both processes to the shared memory) will
+probably occur if you run enough iterations. On my test systems -- a G4 Powerbook and
+a PIII running FreeBSD -- memory corruption always happened in less than 5000 iterations.
+If you use the semaphore, memory corruption will not occur. When either process detects
+corruption, it raises an <tt>AssertionError</tt>.
+</p>
+
+<p>In addition to demonstrating the use of <tt>shm_wrapper</tt> and <tt>shm</tt>, this demo
+also illustrates why one needs to be careful with shared memory programming. Consider that
+even without semaphores these two processes writing to the same bit of memory as fast as
+they can <em>still</em> require thousands of iterations to step on one another. Now imagine
+a similarly infrequent bug, but instead of one that's caused by two deliberately careless demo
+programs, imagine one buried in thousands of lines of your code that causes Some Random
+Event every two weeks or so. You don't want to have to track down a bug like that.
+Speaking of bugs...
+</p>
+
+
+<h3><a name="KnownBugs">Known Bugs</a></h3>
+
+<p>Bugs? My code never has bugs! However, there is a <em>suboptimal anomoly</em>...</p>
+
+<p>If I'm correctly interpreting what I see when I run <tt>top</tt>, the newest version of
+<tt>shm</tt> <em>still</em> leaks memory during the create/destroy cycle of
+both Memory and Semaphore objects. This happens despite plugging several existing memory leaks
+and despite the fact that Python's garbage collector doesn't report anything amiss.
+The leak is tiny (about 12 or 13 bytes per create/destroy cycle) and it is released when
+the Python process ends, so this will only be a problem if you have a long-running process
+that creates and destroys lots of these objects. Note that the leaks occur only when
+creating (or destroying) <strong>new</strong> objects. Getting a handle to an existing
+object doesn't cause a problem.
+</p>
+
+<p>I created <a href="MemoryLeakDemo.py">a simple program called MemoryLeakDemo.py</a>
+that demonstrates the problem. Start it in one window with <tt>top</tt> running in another
+window and you can watch the python process eat memory.
+</p>
+
+<h3><a name="ftok">About <tt>ftok</tt> &ndash; Use It At Your Own Peril</a></h3>
+
+<p>Most sample code that you see involving the use of System V semaphores/shared memory
+recommends <tt>ftok()</tt> to generate an integer key that's guaranteed to be unique on
+that machine. The main convenience of this is that processes can get the key (and thus a
+handle to the shared memory or semaphore) simply by using a previously agreed-upon filename.
+<strong>However,
+most modern implementations of <tt>ftok</tt> don't guarantee that it returns a unique key</strong>, 
+which means it creates a key that may or may not work. If it doesn't work you have to fall 
+back on a reliable alternative method of key
+generation, so you might as well just use the alternative in the first place.
+</p>
+<p>The operating systems affected by this
+include <a href="http://developer.apple.com/documentation/Darwin/Reference/ManPages/man3/ftok.3.html">OS X</a>,
+Open/Net/<a href="http://www.freebsd.org/cgi/man.cgi?query=ftok&amp;sektion=3&amp;apropos=0&amp;manpath=FreeBSD+6.2-RELEASE">FreeBSD</a>,
+and <a href="http://man.cx/?page=ftok&amp;do%5Bgo%5D=go">Linux</a>. (See the BUGS or NOTES section
+of the referenced man pages.)
+
+<p>
+In my experience, <tt>ftok</tt> frequently returned duplicate keys for different files in the
+same directory on my G4 Powerbook. Rather than probing and documenting <tt>ftok</tt>'s
+limitations, I decided to just avoid it entirely and rely on Python's random number
+generator to provide keys for me. It's not as convenient as using a previously agreed-upon
+filename as a key, but buggy implementations of <tt>ftok</tt> don't (reliably) provide
+that either. One alternative is to have the creating process generate a random key and write
+that to a previously agreed-upon file.
+</p>
+
+<h3><a name="compiling">Potential Compile Problems</a></h3>
+<p><strong>Please
+<a name="contact" href="http://NikitaTheSpider.com/contact.html">let me know</a> if you find
+a platform for which shm doesn't compile as-is.</strong></p>
+
+<p>On some systems, you might get this error when compiling:</p>
+
+<pre>shmmodule.c:186: error: redefinition of `union semun'</pre>
+
+<p>If you see this compile error, then you need to add your platform in setup.py to
+the if statement just above where HAVE_UNION_SEMUN is added.
+</p>
+
+<p>Also, I suspect that BSD users (other than FreeBSD-ers) might see something like this:</p>
+
+<pre>shmmodule.c:1375: error: `PAGE_SIZE' undeclared (first use in this function)</pre>
+
+<p>You probably need to <tt>#include &lt;machine/param.h&gt;</tt>. That's already done
+for FreeBSD thanks to an <tt>#ifdef</tt>.
+</p>
+
+<p>Last but not least, version 1.1.4 introduced some fancy code in setup.py. The need for 
+this comes from the ipc_perm struct in <tt>ipc.h</tt>. It contains a member that's called 
+<tt>key</tt>, <tt>_key</tt> or <tt>__key</tt> depending on your system. Setup.py
+should now autodetect which version you have, but the autodetection code is new and hasn't 
+been well exercised (or exorcised). If if doesn't work for you and you're in a rush to 
+get shm working, you can hack shmmodule.c yourself. Find the definition of the 
+<tt>ipc_perm</tt> structure in <tt>/include/sys/ipc.h</tt> (<tt>/include/bits/ipc.h</tt> 
+on some systems) and note which version of key it uses in its definition. Then in shmmodule.c,
+replace the code instances of IPC_PERM_KEY_NAME with the variable name from ipc.h.
+</p>
+
+</body>
+</html>

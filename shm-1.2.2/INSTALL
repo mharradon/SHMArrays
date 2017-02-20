@@ -1,0 +1,7 @@
+To install, just use the normal setup.py routine:
+
+sudo python setup.py
+
+
+Installation isn't known to fail anywhere, but see ReadMe.html if you have problems,
+especially the section "Potential Compile Problems".
