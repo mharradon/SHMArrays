@@ -40,7 +40,7 @@ for i in range(iters):
   state = state - alpha*gradient
 ```
 
-Now you can make it distributed on a single machine using SHM:
+Now you can distribute it across multiple cores or GPUs on a single machine using SHM:
 
 ```python
 state_shm = SHMArrays(state,keys=keys)
