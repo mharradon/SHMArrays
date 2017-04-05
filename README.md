@@ -30,7 +30,7 @@ SHMArrays was designed to enable performant pipelining over the values of the da
 
 Built using the SHM module written by Vladimir Marangozov: http://nikitathespider.com/python/shm/. Install that first by running 'sudo setup.py' in shm-1.2.2
 
-#Example Distributed Gradient Descent Use Case
+# Example Distributed Gradient Descent Use Case
 
 Say you have an algorithm that performs gradient descent on a function:
 
