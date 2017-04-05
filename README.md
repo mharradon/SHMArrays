@@ -51,5 +51,5 @@ for i in range(iters):
   
 Then you just need to spawn multiple processes running this code to get multithreaded performance, or specify different GPUs to parallelize across GPUs, etc. SHMArrays takes care of all of the os interaction as well as proper locking, enabling the processes to pipeline naturally. This is useful if, for example, different parts of the iteration tax different parts of the machine e.g. reading training data from SSD.
   
-#Author
+# Author
 Feel free to email me at mharradon@gmail.com. I also have a small website up at www.highdimensionality.com
